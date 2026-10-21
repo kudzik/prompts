@@ -1,0 +1,129 @@
+Pracujesz w repozytorium /Users/kudzik/Repo/Przepisy nad kucharska.app. Komunikuj się po polsku, wyjaśniaj najważniejsze decyzje prosto i oszczędzaj kontekst.
+
+CEL
+Kontynuuj prace nad Kucharzem v2 w PR #189, na gałęzi feat/chef-v2-two-stage-pipeline. Najbliższy krok to przygotowanie kontrolowanego pilota płatnego i ocena wierności wyniku względem źródła.
+
+Najpierw sprawdź aktualny stan. Poniższy opis jest handoffem, nie dowodem bieżącego stanu repozytorium.
+
+ONBOARDING
+1. Przeczytaj aktualny AGENTS.md — to kanoniczne zasady pracy.
+2. Sprawdź git status, gałąź i lokalny HEAD.
+3. Odczytaj PR #189 oraz aktualne Issues #148, #149 i #49.
+4. Przeczytaj:
+   - docs/agent-improvement/CHEF_V2_HANDOFF.md
+   - docs/agent-improvement/evaluation-results/chef-v2-draft-boundary-fix.md
+5. Zweryfikuj lokalny HEAD względem zdalnego HEAD PR. Nie nadpisuj cudzych zmian.
+6. Korzystaj z odpowiednich skilli .agents/skills/ zgodnie z AGENTS.md. Nie czytaj całej historii ani całego repozytorium bez potrzeby.
+
+OSTATNI POTWIERDZONY STAN
+Commit lokalny i zdalny PR #189:
+b949fafcfb75e6459bc246ba82f734b3b9522350
+Working tree było czyste.
+
+Ostatni commit:
+fix(chef): walidacja szkicu i jawny raport braków mapowania (#148)
+
+Kucharz v2 pozostaje izolowanym kandydatem; produkcyjny pipeline nadal korzysta z chef.v1.
+
+ARCHITEKTURA
+- Faza 1: szkic ontologiczny JSON, transport json_object, bez przesyłania schematu szkicu do providera.
+- Lokalna walidacja szkicu przed Fazą 2.
+- Faza 2: model tworzy manifest chef.v2 zgodny z docelowym kontraktem.
+- Obie fazy domyślnie: google/gemini-3.1-flash-lite przez OpenRouter.
+- Faza 2 nie jest deterministycznym serializerem. Instrukcja w prompcie nie gwarantuje kompletności ani mapowania 1:1.
+
+NAJWAŻNIEJSZE PLIKI
+- web/functions/_lib/chef-v2-two-stage.ts
+- web/functions/_lib/chef-v2-ontology-draft.ts
+- web/functions/_lib/chef-v2-draft-mapping.ts
+- web/functions/_lib/chef-v2-contract.ts
+- web/functions/_lib/chef-v2-evidence-intake.ts
+- web/scripts/chef-v2-two-stage-runner.mjs
+- web/tests/chef-v2-draft-boundary.test.mjs
+- web/tests/chef-v2-draft-mapping.test.mjs
+- web/tests/chef-v2-two-stage.test.mjs
+- web/tests/chef-v2-prompt-schema-parity.test.mjs
+- web/tests/chef-v2-semantic-evaluation.test.mjs
+
+CO OSTATNIO NAPRAWIONO
+1. Walidacja zagnieżdżonych typów, ilości, wydajności i zakresów szkicu, z użyciem istniejącego schema-validator.ts / @cfworker/json-schema.
+2. Sprawdzanie zadeklarowanych typowanych kotwic względem rzeczywistych niepustych linii źródła.
+3. Niepoprawny szkic blokuje callback i Fazę 2.
+4. Poprawny szkic można zapisać przed Fazą 2; błąd zapisu blokuje dalsze wywołanie.
+5. Wynik pipeline zawiera raport mapping; CLI zapisuje mapping.json.
+6. Raport pokazuje kandydatów literalnych, niepotwierdzone mapowania, różnice pól i ograniczenia kontraktu.
+
+OGRANICZENIA — NIE UKRYWAJ ICH
+- Schema PASS i istniejące kotwice nie dowodzą zgodności semantycznej ze źródłem.
+- Raport mapping zawsze ma semanticsVerified:false.
+- Brak literalnego odpowiednika oznacza brak potwierdzonego mapowania, nie dowód semantycznego pominięcia.
+- Raport nie wymusza mapowania 1:1; identyczne wpisy szkicu mogą wskazać tego samego kandydata.
+- conditionalTechniques pozostają w szkicu jako CONTRACT_LIMITATION dla manifestu.
+- conflicts w szkicu pozostają treścią bez określonego DTO, jawnie niezweryfikowaną.
+- Szkic opisuje jedną recepturę; nie dodawaj samowolnie obsługi wielu receptur.
+- Nie uzupełniaj braków heurystykami ani fikcyjnymi danymi.
+
+DOWODY OSTATNIEJ WALIDACJI
+- Końcowe testy celowane i kontrakt instrukcji: 38 PASS / 0 FAIL.
+- Pełny zestaw Node podczas lokalnej bramki: 1422 PASS / 0 FAIL / 4 SKIP.
+- Astro check, build, hygiene i nutrition audit: exit 0.
+- Smoke E2E: 12 PASS.
+- Admin E2E: 10 PASS.
+- Niezależny design i finalny review: APPROVED, recenzent /root/draft_design.
+- Zintegrowany quality:local zakończył się początkowo FAIL przez sandbox EPERM przy uruchamianiu serwera. E2E wykonano później osobno z uprawnieniem.
+- Pierwsze osobne uruchomienie admin E2E utraciło współdzielony serwer. Powtórzenie na osobnym porcie przeszło.
+- Nie przedstawiaj tych dowodów jako jednego zielonego raportu runnera ani certyfikacji czystego SHA.
+- Pełny historyczny zestaw quality:local:extended: NOT RUN.
+- Płatny test po tym commicie: NOT RUN.
+
+NAJBLIŻSZY KROK
+Zaproponowano pilot:
+- jeden przypadek WEB-DEV-01,
+- obie fazy,
+- proponowany budżet do 0,05 USD,
+- bez automatycznych powtórzeń,
+- zapis szkicu, manifestu, mapping i telemetrii w nowym katalogu projektu,
+- ocena zachowania procedur zamienników i pozostałych informacji źródłowych.
+
+UWAGA: UŻYTKOWNIK NIE ZATWIERDZIŁ JESZCZE TEGO PŁATNEGO PILOTA.
+Ostatnia wiadomość użytkownika dotyczyła przygotowania tego handoffu.
+Nie traktuj pytania „czy można już przeprowadzić płatne testy” jako zgody kosztowej.
+
+Przed wywołaniem:
+1. Zweryfikuj aktualny SHA, kod runnera, konfigurację modeli i zasady uruchomienia.
+2. Sprawdź aktualną oficjalną dokumentację konkretnego modelu i trasy OpenRouter w zakresie potrzebnym do pilota, w tym ceny i ograniczenia.
+3. Przygotuj konkretną komendę, nowy katalog wyników w projekcie, sposób rozliczenia kosztu i warunki zatrzymania.
+4. Runner nie ma twardego ogranicznika kosztu — nie obiecuj gwarantowanego limitu 0,05 USD.
+5. Uzyskaj jednoznaczną zgodę użytkownika na konkretny pilot, jeśli nie została udzielona w nowej sesji.
+6. Po zgodzie uruchom tylko zatwierdzony zakres. Nie przechodź automatycznie do kolejnych przypadków.
+7. Oceń wynik względem źródła, szkicu i manifestu. Rozdziel:
+   - poprawność transportu,
+   - kontrakt i kotwice,
+   - mapowanie,
+   - zgodność semantyczną,
+   - koszt rzeczywisty lub brak wiarygodnych danych kosztowych.
+8. Nie poprawiaj promptu automatycznie po jednym nieudanym przykładzie. Najpierw ustal kategorię błędu i najmniejszą uzasadnioną zmianę.
+
+KIERUNEK PRODUKTOWY
+Uzgodniona ścieżka:
+źródło → szkic AI → porównanie i poprawki człowieka → zatwierdzona wersja → dalszy pipeline.
+
+Panel recenzenta to osobny strumień Issue #188. W pierwszej kolejności wykorzystujemy istniejące ChefStudio, edycję i staging. Priorytet:
+„Możliwe pominięcie: źródło opisuje czynność, której brakuje w wariancie”
+[Pokaż źródło] [Zaproponuj uzupełnienie] [Popraw ręcznie] [Odrzuć uwagę].
+
+Nie buduj teraz dodatkowego modelu nadzorcy, rozbudowanego systemu rekomendacji ani nowej infrastruktury bez potwierdzonej potrzeby.
+
+SPOSÓB PRACY
+- Testuj lokalnie; GitHub Actions miało wyczerpane limity. Nie wyłączaj workflow i nie fałszuj required checks.
+- Wszystkie własne raporty, skrypty i artefakty umieszczaj w katalogu projektu, nie w /private/tmp.
+- Nie ujawniaj .env ani sekretów.
+- Używaj rg, ograniczaj wyniki narzędzi; długie logi zapisuj w web/.local-quality/.
+- Testy celowane podczas pracy; jeden FULL dla stabilnego pakietu, bez powtarzania po każdej drobnej zmianie.
+- Przy E2E zapewnij osobny port i właściwy cykl życia serwera.
+- Commit/push wykonuj zgodnie z aktualnym AGENTS.md i obowiązującą zgodą użytkownika. Wcześniej użytkownik udzielił stałej zgody na commit i push zatwierdzonych zmian na gałąź roboczą.
+- Merge do main, deploy, płatne wywołania i produkcyjne D1/R2 wymagają odrębnej zgody.
+- Nie rozszerzaj samowolnie zakresu implementacji.
+- Raportuj rzeczywiste PASS/FAIL/NOT RUN/BLOCKED, bez deklarowania „100% skuteczności”.
+
+Zacznij od krótkiej weryfikacji stanu i przedstawienia konkretnego zakresu pilota. Nie uruchamiaj płatnego modelu bez zgody.
